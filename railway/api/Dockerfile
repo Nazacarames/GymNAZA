@@ -15,9 +15,9 @@ RUN apk add --no-cache git \
  && git clone -q --depth 1 --branch "v${OPENGYM_VERSION}" https://github.com/DuarteSantos8/openGym /src
 WORKDIR /src/mcp
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
-COPY http.mjs ./http.mjs
+COPY http.mjs write-tools.mjs ./
 # Falla el build si algo del grafo de imports no carga en Node puro.
-RUN node scripts/check-node-loadable.mjs && node --check http.mjs
+RUN node scripts/check-node-loadable.mjs && node --check http.mjs && node --check write-tools.mjs
 
 # ── Etapa 2: la API oficial + el MCP al lado ────────────────────────────────────────────────
 FROM ghcr.io/duartesantos8/opengym-api:${OPENGYM_VERSION}

@@ -2,7 +2,8 @@
 /* GymNAZA — el servidor MCP oficial de openGym, pero por HTTP en lugar de stdio, para poder
    agregarlo como "conector personalizado" en Claude (web y app del celular).
 
-   - Reutiliza tal cual las herramientas de mcp/src/tools.js (solo lectura).
+   - Reutiliza tal cual las herramientas de lectura de mcp/src/tools.js y suma las de escritura
+     de write-tools.mjs (siempre con vista previa, confirmación y backup).
    - Modo sin sesión: cada petición crea su servidor y transporte, y se descartan al terminar.
    - Única protección: la ruta tiene que ser exactamente /mcp/<MCP_SECRET>. Cualquier otra → 404.
      La ruta nunca se escribe en los logs. */
@@ -11,6 +12,7 @@ import crypto from 'node:crypto'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { TOOLS } from './src/tools.js'
+import { WRITE_TOOLS } from './write-tools.mjs'
 import { init, getUser } from './src/state.js'
 
 const PORT = +(process.env.MCP_PORT || 8081)
@@ -31,10 +33,11 @@ if (SECRET.length < 32) {
 
   const buildServer = () => {
     const server = new McpServer({ name: 'opengym', version: '0.1.0' })
-    for (const t of TOOLS) {
+    // Las 9 de lectura oficiales + las de escritura de GymNAZA (write-tools.mjs).
+    for (const t of [...TOOLS, ...WRITE_TOOLS]) {
       server.tool(t.name, t.description, t.schema, async (params) => {
         try {
-          const result = t.handler(params || {})
+          const result = await t.handler(params || {})
           return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
         } catch (err) {
           return { isError: true, content: [{ type: 'text', text: `${err.code || 'ERROR'}: ${err.message}` }] }
