@@ -64,11 +64,23 @@ Otras opcionales (ver `.env.example` de openGym): `SESSION_DAYS`, `AUDIT_IP`, `V
 
 La imagen de la API (`railway/api/`) corre, además de la API oficial, el **servidor MCP oficial de
 openGym** por HTTP. Así Claude (web y app del celular) puede leer tus rutinas, entrenamientos, peso,
-1RM estimados y balance muscular. Es **solo lectura**: Claude no puede cambiar nada.
+1RM estimados y balance muscular (9 herramientas oficiales de lectura).
+
+**Escritura** (`railway/api/write-tools.mjs`, propio de GymNAZA): `search_exercises`,
+`create_routine`, `update_routine`, `delete_routine`, `set_week_plan`, `log_bodyweight`,
+`set_target_weight` y `undo_last_change`. Cada una:
+
+- sin `confirm: true` solo devuelve una **vista previa** (no escribe);
+- escribe por la API oficial (`PUT /api/data` con `baseRev`): si otro dispositivo guardó en el
+  medio, responde conflicto y no pisa nada;
+- guarda el estado anterior en `/data/mcp-backups/` (últimos 30); `undo_last_change` revierte el
+  último cambio del conector, solo si nada más cambió después.
+
+No registra entrenamientos (eso se hace en la app).
 
 - URL del conector: `https://web-production-cddc0.up.railway.app/mcp/<MCP_SECRET>`
 - `MCP_SECRET` es una variable del servicio **api** en Railway (Variables → `MCP_SECRET` → ver).
-  **Quien tenga la URL completa puede leer tus datos:** no la compartas. Si se filtra, cambiá la
+  **Quien tenga la URL completa puede leer y modificar tus rutinas, plan y peso:** no la compartas. Si se filtra, cambiá la
   variable (el servicio se redespliega solo) y actualizá el conector en Claude.
 - Cualquier otra ruta bajo `/mcp/` responde 404. nginx no escribe esas URLs en los logs.
 - Para agregarlo: claude.ai → Ajustes → Conectores → *Agregar conector personalizado* → pegá la URL.
