@@ -44,6 +44,9 @@ Imágenes y GIFs: © Gym visual, usados bajo los términos del dataset `hasaneyl
 | `RP_NAME` | `openGym` | nombre que muestra el iPhone al crear la passkey |
 | `PORT` | `8080` | puerto de la API |
 | `DATA_DIR` | `/data` | carpeta de datos (= volumen) |
+| `ADMIN_UIDS` | tu id de usuario (ver `/api/me`) | te da el panel de administración en Ajustes |
+| `INVITE_ONLY` | `1` | para crear un perfil nuevo hace falta un código de invitación |
+| `ALLOW_GUEST` | `0` | sin botón "Continuar sin cuenta" |
 
 **web**
 
@@ -55,8 +58,7 @@ Imágenes y GIFs: © Gym visual, usados bajo los términos del dataset `hasaneyl
 | `RESOLVER` | `auto` | DNS del contenedor |
 | `NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE` | `1` | ajusta los procesos de nginx a la CPU asignada (48 → 8) |
 
-Opcionales (ver `.env.example` de openGym): `ADMIN_UIDS`, `INVITE_ONLY=1`, `ALLOW_GUEST=0`,
-`SESSION_DAYS`, `AUDIT_IP`, `VAPID_SUBJECT=mailto:...`.
+Otras opcionales (ver `.env.example` de openGym): `SESSION_DAYS`, `AUDIT_IP`, `VAPID_SUBJECT=mailto:...`.
 
 ## Pasar a tu dominio propio (ej. `gym.tudominio.com`)
 
