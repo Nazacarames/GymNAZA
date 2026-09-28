@@ -39,6 +39,14 @@ COPY --from=media /out/gif /usr/share/nginx/html/gif
 RUN sed -i 's/ ipv6=off;/;/' /etc/nginx/templates/default.conf.template \
  && grep -q 'resolver ${RESOLVER} valid=10s;' /etc/nginx/templates/default.conf.template
 
+# Conector MCP para Claude (ver railway/api): se inserta justo antes del bloque /api/.
+COPY mcp.location.conf /tmp/mcp.location.conf
+RUN awk 'index($0, "location ^~ ${BASE_PATH}/api/") && !done { while ((getline l < "/tmp/mcp.location.conf") > 0) print l; done=1 } { print }' \
+      /etc/nginx/templates/default.conf.template > /tmp/t && mv /tmp/t /etc/nginx/templates/default.conf.template \
+ && grep -q 'location ^~ /mcp/' /etc/nginx/templates/default.conf.template \
+ && rm /tmp/mcp.location.conf
+ENV MCP_PORT=8081
+
 # RESOLVER=auto → toma el DNS del contenedor (/etc/resolv.conf) al arrancar.
 COPY --chmod=755 16-railway-resolver.envsh /docker-entrypoint.d/16-railway-resolver.envsh
 ENV RESOLVER=auto
