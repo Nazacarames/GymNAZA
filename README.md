@@ -20,7 +20,7 @@ iPhone ──HTTPS──> [web]  nginx: sirve la app + imágenes, y reenvía /ap
 
 | Servicio | Origen | Volumen | Dominio público |
 |---|---|---|---|
-| `api` | imagen oficial `ghcr.io/duartesantos8/opengym-api:1.3.8` | `api-volume` → `/data` | no |
+| `api` | `railway/api/Dockerfile` de este repo (imagen oficial `opengym-api:1.3.8` + conector MCP) | `api-volume` → `/data` | no |
 | `web` | `railway/web/Dockerfile` de este repo (imagen oficial `opengym-web:1.3.8` + imágenes de ejercicios + DNS de Railway) | no hace falta | sí |
 
 **Por qué hay un Dockerfile propio para web:** en docker-compose, un servicio `media` descarga las
@@ -59,6 +59,20 @@ Imágenes y GIFs: © Gym visual, usados bajo los términos del dataset `hasaneyl
 | `NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE` | `1` | ajusta los procesos de nginx a la CPU asignada (48 → 8) |
 
 Otras opcionales (ver `.env.example` de openGym): `SESSION_DAYS`, `AUDIT_IP`, `VAPID_SUBJECT=mailto:...`.
+
+## Conector de Claude (MCP)
+
+La imagen de la API (`railway/api/`) corre, además de la API oficial, el **servidor MCP oficial de
+openGym** por HTTP. Así Claude (web y app del celular) puede leer tus rutinas, entrenamientos, peso,
+1RM estimados y balance muscular. Es **solo lectura**: Claude no puede cambiar nada.
+
+- URL del conector: `https://web-production-cddc0.up.railway.app/mcp/<MCP_SECRET>`
+- `MCP_SECRET` es una variable del servicio **api** en Railway (Variables → `MCP_SECRET` → ver).
+  **Quien tenga la URL completa puede leer tus datos:** no la compartas. Si se filtra, cambiá la
+  variable (el servicio se redespliega solo) y actualizá el conector en Claude.
+- Cualquier otra ruta bajo `/mcp/` responde 404. nginx no escribe esas URLs en los logs.
+- Para agregarlo: claude.ai → Ajustes → Conectores → *Agregar conector personalizado* → pegá la URL.
+  Después aparece también en la app del celular.
 
 ## Pasar a tu dominio propio (ej. `gym.tudominio.com`)
 
@@ -117,8 +131,8 @@ Tratá el backup como algo privado: incluye passkeys (públicas) y la clave de s
 
 1. Mirá la última versión en https://github.com/DuarteSantos8/openGym/releases y leé el `CHANGELOG.md`.
 2. Hacé un backup (ver arriba).
-3. **api:** Railway → servicio api → *Settings* → *Source* → cambiá la imagen a
-   `ghcr.io/duartesantos8/opengym-api:X.Y.Z` → *Deploy*.
-4. **web:** cambiá `ARG OPENGYM_VERSION=X.Y.Z` en `railway/web/Dockerfile`, y desde `railway/web`:
-   `railway up --service web`. Si conectás este repo a Railway, se despliega solo con cada push.
+3. Cambiá `ARG OPENGYM_VERSION=X.Y.Z` en `railway/api/Dockerfile` **y** en `railway/web/Dockerfile`.
+4. Desplegá los dos: desde `railway/api`, `railway up --service api`; desde `railway/web`,
+   `railway up --service web`. Si conectás este repo a Railway (con *Root Directory* `railway/api`
+   y `railway/web`), se despliegan solos con cada push.
 5. Usá **la misma versión** en api y web, y verificá `/api/health`.
