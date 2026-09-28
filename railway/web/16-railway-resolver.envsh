@@ -1,0 +1,13 @@
+#!/bin/sh
+# Lo "sourcea" el entrypoint de nginx antes de renderizar la plantilla (20-envsubst-on-templates),
+# así que la variable exportada acá llega a la config de nginx.
+#
+# Con RESOLVER=auto usa los servidores DNS del propio contenedor. En Railway ese es el DNS que
+# resuelve los nombres *.railway.internal de la red privada. Las IPv6 van entre corchetes, que
+# es como las pide la directiva "resolver" de nginx.
+if [ "${RESOLVER:-auto}" = "auto" ]; then
+  RESOLVER=$(awk '/^nameserver/ { if ($2 ~ ":") printf "[%s] ", $2; else printf "%s ", $2 }' /etc/resolv.conf)
+  RESOLVER=${RESOLVER% }
+  export RESOLVER
+  echo "$0: RESOLVER=auto -> $RESOLVER"
+fi
