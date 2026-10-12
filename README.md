@@ -78,6 +78,20 @@ openGym** por HTTP. Así Claude (web y app del celular) puede leer tus rutinas, 
 
 No registra entrenamientos (eso se hace en la app).
 
+**Notas** (`railway/api/notes.mjs`): las herramientas oficiales no leen ninguna nota, así que este
+módulo las agrega a `list_workouts`, `get_workout`, `get_routine` y `preview_session`, y suma
+`list_notes`. Tipos de nota que guarda la app:
+
+| Campo en el conector | Qué es | Dónde la guarda la app |
+|---|---|---|
+| `session_note` | nota de la sesión entera | `workouts[].note` |
+| `note` / `note_pinned` | nota de un ejercicio en ese entrenamiento (y si pediste verla la próxima vez) | `workouts[].entries[].note` / `notePin` |
+| `standing_note` | nota fija del ejercicio ("siempre en este ejercicio") | `exNotes[id]` |
+| `plan_note` | nota del plan de la rutina para ese ejercicio | `routines[].ex[].note` |
+
+`update_routine` empareja cada ejercicio por id y conserva todo lo que no se le manda (nota,
+descanso, peso, calentamiento…); `note: ""` borra la nota.
+
 - URL del conector: `https://web-production-cddc0.up.railway.app/mcp/<MCP_SECRET>`
 - `MCP_SECRET` es una variable del servicio **api** en Railway (Variables → `MCP_SECRET` → ver).
   **Quien tenga la URL completa puede leer y modificar tus rutinas, plan y peso:** no la compartas. Si se filtra, cambiá la
