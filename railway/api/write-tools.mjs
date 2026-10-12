@@ -103,18 +103,30 @@ const routineById = (state, id) => {
 const checkIcon = icon => {
   if (icon != null && !ICONS.includes(icon)) throw new ToolError('BAD_ICON', `Unknown icon "${icon}". Valid: ${ICONS.join(', ')}`)
 }
-const describeEx = (state, e) => `${e.id} ${exName(state, e.id)} ${e.sets}×${e.repsMin ? e.repsMin + '-' : ''}${e.reps}${e.weight ? ' @' + e.weight : ''}`
-function buildExercises(state, list) {
+const describeEx = (state, e) => `${e.id} ${exName(state, e.id)} ${e.sets}×${e.repsMin ? e.repsMin + '-' : ''}${e.reps}${e.weight ? ' @' + e.weight : ''}${e.restSec ? ` rest ${e.restSec}s` : ''}${e.note ? ` note: "${e.note}"` : ''}`
+// `previous` = los ejercicios actuales de la rutina (update_routine). Cada ejercicio nuevo se
+// empareja con el anterior del mismo id y PARTE de su configuración: así no se pierden la nota,
+// el descanso, el peso, las series de calentamiento, los intensificadores ni ningún otro ajuste
+// que el agente no mandó. Solo cambia lo que viene en `list`; note: "" o rest_sec: 0 los borran.
+function buildExercises(state, list, previous = []) {
+  const pool = [...(previous || [])]
   return list.map((x, i) => {
     if (!exName(state, x.id)) throw new ToolError('NO_EXERCISE', `Exercise #${i + 1}: id "${x.id}" is not in the library. Use search_exercises to find a real id.`)
     const reps = x.reps
     if (x.reps_min != null && x.reps_min > reps) throw new ToolError('BAD_RANGE', `Exercise #${i + 1}: reps_min (${x.reps_min}) is above reps (${reps}).`)
+    const at = pool.findIndex(p => p && p.id === x.id)
+    const old = at >= 0 ? pool.splice(at, 1)[0] : null
+    const e = old ? { ...old } : {}
+    Object.assign(e, { id: x.id, sets: x.sets, mode: 'reps', reps })
+    if (x.weight != null) e.weight = x.weight
+    else if (e.weight == null) e.weight = 0
     // Igual que el editor de la app: un rango se guarda como reps (tope) + repsMin (piso) con
     // progresión "double"; sin rango, reps fijas y la progresión de la rutina.
-    const e = { id: x.id, sets: x.sets, mode: 'reps', reps, weight: x.weight || 0 }
-    if (x.reps_min != null && x.reps_min < reps) { e.repsMin = x.reps_min; e.prog = 'double' }
-    if (x.rest_sec) e.restSec = x.rest_sec
-    if (x.note) e.note = x.note
+    const dropRange = () => { delete e.repsMin; if (e.prog === 'double') delete e.prog }
+    if (x.reps_min != null) { if (x.reps_min < reps) { e.repsMin = x.reps_min; e.prog = 'double' } else dropRange() }
+    else if (e.repsMin != null && !(e.repsMin < reps)) dropRange()
+    if (x.rest_sec != null) { if (x.rest_sec > 0) e.restSec = x.rest_sec; else delete e.restSec }
+    if (x.note != null) { const n = x.note.trim(); if (n) e.note = n; else delete e.note }
     return e
   })
 }
@@ -125,9 +137,9 @@ const exerciseSpec = z.object({
   sets: z.number().int().min(1).max(20),
   reps: z.number().int().min(1).max(100).describe('Target reps, or the TOP of the range when reps_min is given.'),
   reps_min: z.number().int().min(1).max(100).optional().describe('Bottom of a rep range (e.g. 8 for 8-10). Enables double progression.'),
-  weight: z.number().min(0).max(1000).optional().describe('Starting weight in the profile unit. Omit or 0 = the first session sets the baseline.'),
-  rest_sec: z.number().int().min(0).max(1800).optional(),
-  note: z.string().max(200).optional(),
+  weight: z.number().min(0).max(1000).optional().describe('Weight in the profile unit. New exercise: omit or 0 = the first session sets the baseline. update_routine: omit = keep the current weight.'),
+  rest_sec: z.number().int().min(0).max(1800).optional().describe('Rest after each set, seconds. update_routine: omit = keep; 0 = back to the global rest timer.'),
+  note: z.string().max(500).optional().describe('Plan note shown in the app for this exercise. update_routine: omit = keep the current note; "" = delete it.'),
 }).strict()
 const confirm = z.boolean().optional().describe('false/omitted = preview only (nothing written). true = write. Always preview and get the user\'s OK first.')
 const dayKey = z.enum(DAYN)
@@ -177,7 +189,7 @@ export const WRITE_TOOLS = [
   },
   {
     name: 'update_routine',
-    description: 'Change an existing routine: rename it, change its icon, and/or REPLACE its whole exercise list (send the full new list). Preview first; writes only with confirm: true.',
+    description: 'Change an existing routine: rename it, change its icon, and/or set its exercise list (send the full new list, in order — exercises left out are removed). Each exercise is matched by id to the current one and keeps everything you do not send: its note, weight, rest, warm-ups and other settings. Call get_routine first to see the current notes. Preview first; writes only with confirm: true.',
     schema: {
       routine_id: z.string().min(1),
       name: z.string().min(1).max(60).optional(),
@@ -196,7 +208,7 @@ export const WRITE_TOOLS = [
         }
         if (icon && icon !== r.emoji) { out.push(`~ icon: ${r.emoji} → ${icon}`); r.emoji = icon }
         if (exercises) {
-          const nx = buildExercises(s, exercises)
+          const nx = buildExercises(s, exercises, r.ex)
           if (JSON.stringify(nx) !== JSON.stringify(r.ex)) {
             out.push(`~ exercises of "${r.name}":\n    before: ${(r.ex || []).map(e => describeEx(s, e)).join('; ') || '(none)'}\n    after:  ${nx.map(e => describeEx(s, e)).join('; ')}`)
             r.ex = nx

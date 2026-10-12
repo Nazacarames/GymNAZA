@@ -13,6 +13,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { TOOLS } from './src/tools.js'
 import { WRITE_TOOLS } from './write-tools.mjs'
+import { NOTE_TOOLS, NOTE_DESCRIPTIONS, withNotes } from './notes.mjs'
 import { init, getUser } from './src/state.js'
 
 const PORT = +(process.env.MCP_PORT || 8081)
@@ -33,11 +34,12 @@ if (SECRET.length < 32) {
 
   const buildServer = () => {
     const server = new McpServer({ name: 'opengym', version: '0.1.0' })
-    // Las 9 de lectura oficiales + las de escritura de GymNAZA (write-tools.mjs).
-    for (const t of [...TOOLS, ...WRITE_TOOLS]) {
-      server.tool(t.name, t.description, t.schema, async (params) => {
+    // Las 9 de lectura oficiales (con las notas del usuario agregadas por notes.mjs) + list_notes
+    // + las de escritura de GymNAZA (write-tools.mjs).
+    for (const t of [...TOOLS, ...NOTE_TOOLS, ...WRITE_TOOLS]) {
+      server.tool(t.name, t.description + (NOTE_DESCRIPTIONS[t.name] || ''), t.schema, async (params) => {
         try {
-          const result = await t.handler(params || {})
+          const result = withNotes(t.name, await t.handler(params || {}))
           return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
         } catch (err) {
           return { isError: true, content: [{ type: 'text', text: `${err.code || 'ERROR'}: ${err.message}` }] }
